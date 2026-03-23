@@ -1,0 +1,74 @@
+export const API_KEY = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY;
+export const ROOT_FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID;
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  thumbnailLink?: string;
+}
+
+export interface TabData {
+  id: string;
+  label: string;
+  photos: DriveFile[];
+}
+
+export async function fetchDriveContents(): Promise<TabData[]> {
+  try {
+    const url = `https://www.googleapis.com/drive/v3/files?q='${ROOT_FOLDER_ID}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType,thumbnailLink)`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.files) return [];
+
+    const folders = data.files.filter((f: DriveFile) => f.mimeType === 'application/vnd.google-apps.folder');
+    const standalonePhotos = data.files.filter((f: DriveFile) => f.mimeType.startsWith('image/'));
+
+    let tabs: TabData[] = [];
+
+    // If there are subfolders, treat them as tabs
+    for (const folder of folders) {
+      const folderUrl = `https://www.googleapis.com/drive/v3/files?q='${folder.id}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType,thumbnailLink)`;
+      const folderRes = await fetch(folderUrl);
+      const folderData = await folderRes.json();
+      
+      const photos = (folderData.files || []).filter((f: DriveFile) => f.mimeType.startsWith('image/'));
+      tabs.push({
+        id: folder.id,
+        label: folder.name,
+        photos
+      });
+    }
+
+    // If there are standalone photos in the root, put them in a "Geral" tab
+    if (standalonePhotos.length > 0) {
+      tabs.push({
+        id: 'geral',
+        label: folders.length > 0 ? 'Outros' : 'Fotos',
+        photos: standalonePhotos
+      });
+    }
+
+    if (tabs.length === 0) {
+        tabs = [{
+            id: 'empty',
+            label: 'Sem Fotos',
+            photos: []
+        }];
+    }
+
+    tabs.sort((a, b) => a.label.localeCompare(b.label));
+    return tabs;
+  } catch (error) {
+    console.error('Error fetching from Google Drive', error);
+    return [];
+  }
+}
+
+export function getImageUrl(file: DriveFile) {
+  if (file.thumbnailLink) {
+    return file.thumbnailLink.replace(/=s\d+/, '=s1200');
+  }
+  return `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`;
+}
