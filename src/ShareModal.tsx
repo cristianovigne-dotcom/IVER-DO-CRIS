@@ -64,7 +64,7 @@ export default function ShareModal({ photo, onClose, initialNet = null }: ShareM
     setSharing(true);
 
     try {
-      const imageUrl = getImageUrl(photo);
+      const imageUrl = getImageUrl(photo, 'large');
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       const file = new File([blob], `${photo.name}.jpg`, { type: blob.type || 'image/jpeg' });
@@ -149,7 +149,7 @@ export default function ShareModal({ photo, onClose, initialNet = null }: ShareM
           {/* Thumbnail / Header */}
           <div className="flex items-center gap-3 px-5 pt-4 sm:pt-6">
             <div className="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-[#2a3a5e] to-[#3a5e2a] flex-shrink-0 flex items-center justify-center border border-white/10">
-              <img src={getImageUrl(photo)} alt={photo.name} className="w-full h-full object-cover" />
+              <img src={getImageUrl(photo, 'thumbnail')} alt={photo.name} className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col">
               <p className="text-[15px] font-medium text-[#f0f0f0] truncate max-w-[250px]">{photo.name}</p>

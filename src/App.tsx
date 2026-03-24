@@ -12,6 +12,7 @@ export default function App() {
   const [selectedPhoto, setSelectedPhoto] = useState<DriveFile | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [visibleLimit, setVisibleLimit] = useState(12)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const [shareTarget, setShareTarget] = useState<'ig' | 'fb' | 'wz' | null>(null)
 
@@ -28,13 +29,14 @@ export default function App() {
       setLoading(false);
     }
     loadData();
-  }, []);
+    setVisibleLimit(12);
+  }, [activeTab]);
 
 
   const handleDownload = async (photo: DriveFile) => {
     try {
       setDownloading(true);
-      const imageUrl = getImageUrl(photo);
+      const imageUrl = getImageUrl(photo, 'original');
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -54,7 +56,7 @@ export default function App() {
   };
 
   const handleCopyLink = (photo: DriveFile) => {
-    const imageUrl = getImageUrl(photo);
+    const imageUrl = getImageUrl(photo, 'large');
     navigator.clipboard.writeText(imageUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -136,17 +138,33 @@ export default function App() {
             <p className="text-[#f4a261] font-mono text-sm tracking-[0.3em] uppercase mt-2">ABRINDO AS CORTINAS...</p>
           </div>
         ) : currentTab && currentTab.photos.length > 0 ? (
-          <motion.div 
-            key={currentTab.id}
+          <>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex justify-center md:justify-start mb-10 px-4"
+            >
+              <div className="flex items-center gap-3 px-6 py-2 rounded-full border border-white/5 bg-white/[0.02] backdrop-blur-sm">
+                <span className="text-zinc-500 uppercase tracking-[0.3em] text-[10px] md:text-xs font-black">
+                  {currentTab.photos.length} Momentos <span className="text-[#f4a261]">Mágicos</span>
+                </span>
+                <div className="w-1 h-1 rounded-full bg-[#f4a261]/40" />
+                <span className="text-zinc-600 text-[10px] md:text-xs font-medium lowercase">Nesta Galeria</span>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              key={currentTab.id}
             initial="hidden"
             animate="show"
             variants={{
               hidden: { opacity: 0 },
               show: { opacity: 1, transition: { staggerChildren: 0.1 } }
             }}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8 auto-rows-[300px] md:auto-rows-[400px]"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 auto-rows-[200px] md:auto-rows-[400px]"
           >
-            {currentTab.photos.map((photo, i) => (
+            {currentTab.photos.slice(0, visibleLimit).map((photo, i) => (
               <motion.div 
                 key={photo.id}
                 variants={{
@@ -159,7 +177,7 @@ export default function App() {
                 className="relative cursor-pointer rounded-2xl overflow-hidden bg-zinc-900 group border-4 border-white shadow-[0_20px_40px_rgba(0,0,0,0.6)] z-10"
               >
                 <img 
-                  src={getImageUrl(photo)} 
+                  src={getImageUrl(photo, 'thumbnail')} 
                   alt={photo.name} 
                   referrerPolicy="no-referrer"
                   loading="lazy"
@@ -171,7 +189,30 @@ export default function App() {
                 <div className="absolute inset-0 -translate-x-[150%] group-hover:animate-[glint_0.8s_ease-in-out_forwards] bg-gradient-to-r from-transparent via-white/50 to-transparent skew-x-[-20deg] pointer-events-none z-20 mix-blend-overlay" />
               </motion.div>
             ))}
-          </motion.div>
+            </motion.div>
+
+            {visibleLimit < currentTab.photos.length && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-center mt-12 mb-20"
+              >
+                <button
+                  onClick={() => setVisibleLimit(prev => prev + 12)}
+                  className="group relative px-10 py-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-[#f4a261] font-black uppercase tracking-[0.3em] text-xs hover:bg-[#f4a261] hover:text-[#1f0b0b] transition-all duration-500 shadow-[0_10px_40px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(244,162,97,0.4)] hover:-translate-y-1 active:scale-95"
+                >
+                  <span className="relative z-10 flex items-center gap-3">
+                    Carregar Mais
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#f4a261] group-hover:bg-[#1f0b0b] transition-colors" />
+                    Momentos
+                  </span>
+                  
+                  {/* Internal Glow on Hover */}
+                  <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-r from-white/20 to-transparent transition-opacity duration-500" />
+                </button>
+              </motion.div>
+            )}
+          </>
         ) : (
           <div className="w-full min-h-[300px] liquid-glass rounded-[2.5rem] flex items-center justify-center border border-white/10">
              <p className="text-zinc-400 text-xl font-light">O picadeiro está vazio nesta categoria.</p>
@@ -214,7 +255,7 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <img 
-                src={getImageUrl(selectedPhoto)} 
+                src={getImageUrl(selectedPhoto, 'large')} 
                 alt={selectedPhoto.name} 
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-contain drop-shadow-[0_20px_50px_rgba(31,11,11,1)]"

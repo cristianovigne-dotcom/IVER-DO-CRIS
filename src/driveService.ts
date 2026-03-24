@@ -66,9 +66,24 @@ export async function fetchDriveContents(): Promise<TabData[]> {
   }
 }
 
-export function getImageUrl(file: DriveFile) {
+export type ImageSize = 'thumbnail' | 'medium' | 'large' | 'original';
+
+export function getImageUrl(file: DriveFile, size: ImageSize = 'large') {
+  const sizeMap: Record<ImageSize, string> = {
+    thumbnail: 's400',
+    medium: 's800',
+    large: 's1600',
+    original: 's0' // s0 returns the original resolution
+  };
+
+  const sz = sizeMap[size];
+
   if (file.thumbnailLink) {
-    return file.thumbnailLink.replace(/=s\d+/, '=s1200');
+    // googleusercontent.com links use =sXXX suffix
+    return file.thumbnailLink.replace(/=s\d+/, `=${sz}`);
   }
-  return `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`;
+  
+  // fallback for drive.google.com/thumbnail links
+  const width = sz === 's0' ? 0 : parseInt(sz.substring(1));
+  return `https://drive.google.com/thumbnail?id=${file.id}${width ? `&sz=w${width}` : ''}`;
 }
