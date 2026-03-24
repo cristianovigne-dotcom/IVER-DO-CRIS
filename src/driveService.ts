@@ -14,30 +14,42 @@ export interface TabData {
   photos: DriveFile[];
 }
 
-export async function fetchDriveContents(): Promise<TabData[]> {
-  try {
-    const url = `https://www.googleapis.com/drive/v3/files?q='${ROOT_FOLDER_ID}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType,thumbnailLink)`;
+async function fetchAllFromFolder(folderId: string): Promise<DriveFile[]> {
+  let allFiles: DriveFile[] = [];
+  let nextPageToken: string | undefined = undefined;
+
+  do {
+    const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${API_KEY}&fields=nextPageToken,files(id,name,mimeType,thumbnailLink)&pageSize=1000${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
     const response = await fetch(url);
     const data = await response.json();
     
-    if (!data.files) return [];
+    if (data.files) {
+      allFiles = [...allFiles, ...data.files];
+    }
+    nextPageToken = data.nextPageToken;
+  } while (nextPageToken);
 
-    const folders = data.files.filter((f: DriveFile) => f.mimeType === 'application/vnd.google-apps.folder');
-    const standalonePhotos = data.files.filter((f: DriveFile) => f.mimeType.startsWith('image/'));
+  return allFiles;
+}
+
+export async function fetchDriveContents(): Promise<TabData[]> {
+  try {
+    const rootFiles = await fetchAllFromFolder(ROOT_FOLDER_ID);
+    
+    const folders = rootFiles.filter((f: DriveFile) => f.mimeType === 'application/vnd.google-apps.folder');
+    const standalonePhotos = rootFiles.filter((f: DriveFile) => f.mimeType.startsWith('image/'));
 
     let tabs: TabData[] = [];
 
     // If there are subfolders, treat them as tabs
     for (const folder of folders) {
-      const folderUrl = `https://www.googleapis.com/drive/v3/files?q='${folder.id}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType,thumbnailLink)`;
-      const folderRes = await fetch(folderUrl);
-      const folderData = await folderRes.json();
+      const photos = await fetchAllFromFolder(folder.id);
+      const imageFiles = photos.filter((f: DriveFile) => f.mimeType.startsWith('image/'));
       
-      const photos = (folderData.files || []).filter((f: DriveFile) => f.mimeType.startsWith('image/'));
       tabs.push({
         id: folder.id,
         label: folder.name,
-        photos
+        photos: imageFiles
       });
     }
 
